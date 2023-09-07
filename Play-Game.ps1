@@ -29,11 +29,15 @@
   .PARAMETER Height
   New screen resolution height to set
 
+  .PARAMETER HDR
+  When given, toggle HDR on for the game and off again at finish
+
   .PARAMETER Trace
-  When given, print actions to console before executing
+  When given, print actions to console before executing. Needs hdr_switch on the path
 
   .LINK
   Source Repository: https://github.com/bmrussell/PowerShellGaming
+  hdr_switch: https://github.com/bradgearon/hdr-switch/tree/develop
 
   .EXAMPLE
   Play-Game.ps1 -Launch "D:\Games\GOG\Cyberpunk 2077\bin\x64\Cyberpunk2077.exe" -Name "Cyberpunk2077" -Plan "GameTurbo (High Performance)" -Wait 30 -Width 3440 -Height 1440
@@ -41,7 +45,7 @@
 
 #>
 
-param([string]$Launch, [string]$Name, [string]$Plan, [int]$Wait, [int]$Width, [int]$Height, [switch]$Trace)
+param([string]$Launch, [string]$Name, [string]$Plan, [int]$Wait, [int]$Width, [int]$Height, [switch]$HDR, [switch]$Trace)
 
 if ($Plan -ne "") {    
     $currentPlan = Get-Powerplan.ps1
@@ -70,12 +74,18 @@ if ($Width -ne "" -and $Height -ne "") {
     if ($Trace.IsPresent) { Write-Host "Setting screen res: $($Width)x$($Height)"}
 }
 
+if ($HDR.IsPresent) {
+    if ($Trace.IsPresent) { Write-Host "HDR on"}
+    Start-Process "hdr_switch_tray" hdr
+}
+
 $proc = Start-Process -FilePath $Launch -PassThru
-# Waiting here won't work because game launchers OF COURSE
+# Waiting here won't work often because game launchers OF COURSE
 if ($Wait -ne 0) {
     if ($Trace.IsPresent) { Write-Host "Waiting: $($Wait)s"}
     Start-Sleep -Seconds $Wait
 }
+
 
 if ($Name -ne "") {
     if ($Trace.IsPresent) { Write-Host "Waiting for: $($Name) to quit"}
@@ -92,10 +102,17 @@ while ($null -ne (Get-Process -Name $Name)) {
 }
 Write-Host ""
 
+if ($HDR.IsPresent) {
+    if ($Trace.IsPresent) { Write-Host "HDR off"}
+    & hdr_switch_tray hdr
+}
+
 if ($Width -ne "" -and $Height -ne "") {
     if ($Trace.IsPresent) { Write-Host "Setting screen res: $($currentWidth)x$($currentHeight)"}
     Set-DisplayResolution -Width $currentWidth -Height $currentHeight
 }
+
+
 
 if ($Plan -ne "") {
     if ($Trace.IsPresent) { Write-Host "Setting power plan: $($currentPlan)"}

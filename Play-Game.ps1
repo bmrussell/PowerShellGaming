@@ -38,10 +38,7 @@
   .EXAMPLE
   Play-Game.ps1 -Launch "D:\Games\GOG\Cyberpunk 2077\bin\x64\Cyberpunk2077.exe" -Name "Cyberpunk2077" -Plan "GameTurbo (High Performance)" -Wait 30 -Width 3440 -Height 1440
 
-  .EXAMPLE
-  From Windows command prompt
 
-  powershell -Command "Play-Game.ps1 -Launch '"C:\Users\brian\OneDrive\Desktop\Starfield.lnk"' -Name 'Starfield' -Plan 'GameTurbo (High Performance)' -Wait 10 -Width 1920 -Height 1080 -Trace"
 #>
 
 param([string]$Launch, [string]$Name, [string]$Plan, [int]$Wait, [int]$Width, [int]$Height, [switch]$Trace)
@@ -73,7 +70,7 @@ if ($Width -ne "" -and $Height -ne "") {
     if ($Trace.IsPresent) { Write-Host "Setting screen res: $($Width)x$($Height)"}
 }
 
-Start-Process -FilePath $Launch
+$proc = Start-Process -FilePath $Launch -PassThru
 # Waiting here won't work because game launchers OF COURSE
 if ($Wait -ne 0) {
     if ($Trace.IsPresent) { Write-Host "Waiting: $($Wait)s"}
@@ -83,10 +80,20 @@ if ($Wait -ne 0) {
 if ($Name -ne "") {
     if ($Trace.IsPresent) { Write-Host "Waiting for: $($Name) to quit"}
     Wait-Process -Name $Name
+} else {
+    $proc.WaitForExit()
 }
 
+# Workaround for packaged exes that launch another like aliens dark descent
+# causing Access is denied error
+while ($null -ne (Get-Process -Name $Name)) {
+    Start-Sleep -Seconds $Wait
+    Write-Host -NoNewline "."
+}
+Write-Host ""
+
 if ($Width -ne "" -and $Height -ne "") {
-    if ($Trace.IsPresent) { Write-Host "Setting screen res: $($currentWidth)x$(currentHeight)"}
+    if ($Trace.IsPresent) { Write-Host "Setting screen res: $($currentWidth)x$($currentHeight)"}
     Set-DisplayResolution -Width $currentWidth -Height $currentHeight
 }
 

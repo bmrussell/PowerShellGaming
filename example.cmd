@@ -1,0 +1,1 @@
+Play-Game.ps1 -Launch "C:\Windows\notepad.exe" -Name "Notepad" -Plan "GameTurbo (High Performance)" -Wait 10 -Width 1920 -Height 1080 -Trace

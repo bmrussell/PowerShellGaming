@@ -15,7 +15,7 @@
   Path to shortcut or EXE file.
   
   .PARAMETER Name
-  Process name of the game to wait for.
+  Process name of the game to wait for. Can include wildcards.
 
   .PARAMETER Plan
   Power plan name to set while the game is running.
@@ -29,31 +29,34 @@
   .PARAMETER Height
   New screen resolution height to set
 
-  .PARAMETER HDR
-  When given, toggle HDR on for the game and off again at finish
-
   .PARAMETER Trace
-  When given, print actions to console before executing. Needs hdr_switch on the path
+  When given, print actions to console before executing
+
+  .PARAMETER StopServices
+  Stop non-essential services and restart on quit. List of services should be a pipe seperated string in $Env:USER_STOPPABLE_SERVICES. 
+
+  .NOTES
+  The user must have Start/Stop rights on the services to be controlled. Use Carbon directly or Grant-ServiceStopStart.ps1 to grant rights.
 
   .LINK
   Source Repository: https://github.com/bmrussell/PowerShellGaming
-  hdr_switch: https://github.com/bradgearon/hdr-switch/tree/develop
 
   .EXAMPLE
   Play-Game.ps1 -Launch "D:\Games\GOG\Cyberpunk 2077\bin\x64\Cyberpunk2077.exe" -Name "Cyberpunk2077" -Plan "GameTurbo (High Performance)" -Wait 30 -Width 3440 -Height 1440
 
-
+  .EXAMPLE
+  Play-Game.ps1 -Launch 'J:\SteamLibrary\steamapps\common\The Ascent\TheAscent.exe' -Plan 'GameTurbo (High Performance)' -Name 'TheAscent*' -Wait 5
 #>
 
-param([string]$Launch, [string]$Name, [string]$Plan, [int]$Wait, [int]$Width, [int]$Height, [switch]$HDR, [switch]$Trace)
+param([string]$Launch, [string]$Name, [string]$Plan, [int]$Wait, [int]$Width, [int]$Height, [switch]$Trace, [switch]$StopServices)
 
 if ($Plan -ne "") {    
     $currentPlan = Get-Powerplan.ps1
-    if ($Trace.IsPresent) { Write-Host "Got current power plan plan: $($currentPlan)"}
+    if ($Trace.IsPresent) { Write-Host "Got current power plan plan: $($currentPlan)" }
 }
 
 if ($Plan -ne "") {
-    if ($Trace.IsPresent) { Write-Host "Setting power plan: $($Plan)"}
+    if ($Trace.IsPresent) { Write-Host "Setting power plan: $($Plan)" }
     Set-Powerplan.ps1 -Plan $Plan
 }
 
@@ -71,50 +74,51 @@ $currentHeight = [PInvoke]::GetDeviceCaps($hdc, 117)
 
 if ($Width -ne "" -and $Height -ne "") {    
     Set-DisplayResolution -Width $Width -Height $Height
-    if ($Trace.IsPresent) { Write-Host "Setting screen res: $($Width)x$($Height)"}
+    if ($Trace.IsPresent) { Write-Host "Setting screen res: $($Width)x$($Height)" }
 }
 
-if ($HDR.IsPresent) {
-    if ($Trace.IsPresent) { Write-Host "HDR on"}
-    Start-Process "hdr_switch_tray" hdr
+if ($null -ne $Env:USER_STOPPABLE_SERVICES -and $StopServices.IsPresent) {    
+    $services = Get-Service -Erroraction SilentlyContinue | Where-Object { $_.Name -match $Env:USER_STOPPABLE_SERVICES -and $_.Status -eq 'Running'}
+    if ($Trace.IsPresent) { Write-Host "Stopping $($services.length) services..." }
+    $services | ForEach-Object { Write-Host "Stopping $($_.Name)..."; Stop-Service -Erroraction SilentlyContinue -Name $_.Name }
 }
 
-$proc = Start-Process -FilePath $Launch -PassThru
-# Waiting here won't work often because game launchers OF COURSE
+
+Start-Process -FilePath $Launch
+
+# Wait adds contingency for a launcher to launch the actual game
 if ($Wait -ne 0) {
-    if ($Trace.IsPresent) { Write-Host "Waiting: $($Wait)s"}
+    if ($Trace.IsPresent) { Write-Host "Waiting: $($Wait)s" }
     Start-Sleep -Seconds $Wait
 }
 
-
-if ($Name -ne "") {
-    if ($Trace.IsPresent) { Write-Host "Waiting for: $($Name) to quit"}
-    Wait-Process -Name $Name
-} else {
-    $proc.WaitForExit()
-}
-
-# Workaround for packaged exes that launch another like aliens dark descent
-# causing Access is denied error
-while ($null -ne (Get-Process -Name $Name)) {
-    Start-Sleep -Seconds $Wait
-    Write-Host -NoNewline "."
-}
-Write-Host ""
-
-if ($HDR.IsPresent) {
-    if ($Trace.IsPresent) { Write-Host "HDR off"}
-    & hdr_switch_tray hdr
+# Can't use $proc.WaitForExit() so workaround for packaged exes that launch another like aliens dark descent
+# is just to poll
+if ("" -ne $Name) {
+    while ($null -ne (Get-Process -Erroraction SilentlyContinue -Name $Name)) {
+        Start-Sleep -Seconds $Wait
+        Write-Host -NoNewline "."
+    }
+    Write-Host ""
 }
 
 if ($Width -ne "" -and $Height -ne "") {
-    if ($Trace.IsPresent) { Write-Host "Setting screen res: $($currentWidth)x$($currentHeight)"}
+    if ($Trace.IsPresent) { Write-Host "Setting screen res: $($currentWidth)x$($currentHeight)" }
     Set-DisplayResolution -Width $currentWidth -Height $currentHeight
 }
 
-
-
 if ($Plan -ne "") {
-    if ($Trace.IsPresent) { Write-Host "Setting power plan: $($currentPlan)"}
+    if ($Trace.IsPresent) { Write-Host "Setting power plan: $($currentPlan)" }
     Set-Powerplan.ps1 -Plan $currentPlan
 }
+
+if ($null -ne $services -and $StopServices.IsPresent) {
+    if ($Trace.IsPresent) { Write-Host "Starting $($services.length) services..." }
+    $services | ForEach-Object { Write-Host "Starting $($_.Name)..."; Start-Service -Erroraction SilentlyContinue -Name $_.Name }
+}
+
+if ($Trace.IsPresent) {
+    Write-Host "Done"    
+}
+
+Start-Sleep -Seconds 2

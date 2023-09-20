@@ -29,6 +29,9 @@
   .PARAMETER Height
   New screen resolution height to set
 
+  .PARAMETER HDR
+  When given, toggle HDR on for the game and off again at finish
+
   .PARAMETER Trace
   When given, print actions to console before executing
 
@@ -48,7 +51,7 @@
   Play-Game.ps1 -Launch 'J:\SteamLibrary\steamapps\common\The Ascent\TheAscent.exe' -Plan 'GameTurbo (High Performance)' -Name 'TheAscent*' -Wait 5
 #>
 
-param([string]$Launch, [string]$Name, [string]$Plan, [int]$Wait, [int]$Width, [int]$Height, [switch]$Trace, [switch]$StopServices)
+param([string]$Launch, [string]$Name, [string]$Plan, [int]$Wait, [int]$Width, [int]$Height, [switch]$Trace, [switch]$HDR, [switch]$StopServices)
 
 if ($Plan -ne "") {    
     $currentPlan = Get-Powerplan.ps1
@@ -75,6 +78,11 @@ $currentHeight = [PInvoke]::GetDeviceCaps($hdc, 117)
 if ($Width -ne "" -and $Height -ne "") {    
     Set-DisplayResolution -Width $Width -Height $Height
     if ($Trace.IsPresent) { Write-Host "Setting screen res: $($Width)x$($Height)" }
+}
+
+if ($HDR.IsPresent) {
+    if ($Trace.IsPresent) { Write-Host "HDR on"}
+    Start-Process "hdr_switch_tray" hdr
 }
 
 if ($null -ne $Env:USER_STOPPABLE_SERVICES -and $StopServices.IsPresent) {    
@@ -105,6 +113,11 @@ if ("" -ne $Name) {
 if ($Width -ne "" -and $Height -ne "") {
     if ($Trace.IsPresent) { Write-Host "Setting screen res: $($currentWidth)x$($currentHeight)" }
     Set-DisplayResolution -Width $currentWidth -Height $currentHeight
+}
+
+if ($HDR.IsPresent) {
+    if ($Trace.IsPresent) { Write-Host "HDR off"}
+    & hdr_switch_tray hdr
 }
 
 if ($Plan -ne "") {

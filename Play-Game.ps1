@@ -45,10 +45,10 @@
   Source Repository: https://github.com/bmrussell/PowerShellGaming
 
   .EXAMPLE
-  Play-Game.ps1 -Launch "D:\Games\GOG\Cyberpunk 2077\bin\x64\Cyberpunk2077.exe" -Name "Cyberpunk2077" -Plan "GameTurbo (High Performance)" -Wait 30 -Width 3440 -Height 1440
-
+  Play-Game.ps1 -Launch '"C:\Users\brian\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Games\Cyberpunk 2077.lnk"' -Plan "'GameTurbo (High Performance)'" -Name "Cyberpunk2077" -Wait 15 -HDR
+  
   .EXAMPLE
-  Play-Game.ps1 -Launch 'J:\SteamLibrary\steamapps\common\The Ascent\TheAscent.exe' -Plan 'GameTurbo (High Performance)' -Name 'TheAscent*' -Wait 5
+  Play-Game.ps1 -Launch "'J:\SteamLibrary\steamapps\common\The Ascent\TheAscent.exe'" -Plan "'GameTurbo (High Performance)'" -Name 'TheAscent*' -Wait 5
 #>
 
 param([string]$Launch, [string]$Name, [string]$Plan, [int]$Wait, [int]$Width, [int]$Height, [switch]$Trace, [switch]$HDR, [switch]$StopServices)
@@ -74,8 +74,9 @@ public class PInvoke {
 $hdc = [PInvoke]::GetDC([IntPtr]::Zero)
 $currentWidth = [PInvoke]::GetDeviceCaps($hdc, 118)
 $currentHeight = [PInvoke]::GetDeviceCaps($hdc, 117)
+if ($Trace.IsPresent) { Write-Host "Original screen res: $($currentWidth)x$($currentHeight)" }
 
-if ($Width -ne "" -and $Height -ne "") {    
+if ($Width -ne 0 -and $Height -ne 0) {    
     Set-DisplayResolution -Width $Width -Height $Height
     if ($Trace.IsPresent) { Write-Host "Setting screen res: $($Width)x$($Height)" }
 }
@@ -110,9 +111,15 @@ if ("" -ne $Name) {
     Write-Host ""
 }
 
-if ($Width -ne "" -and $Height -ne "") {
+if ($Width -ne 0 -and $Height -ne 0) {
     if ($Trace.IsPresent) { Write-Host "Setting screen res: $($currentWidth)x$($currentHeight)" }
     Set-DisplayResolution -Width $currentWidth -Height $currentHeight
+}
+
+if ($Trace.IsPresent) {    
+    $restoredWidth = [PInvoke]::GetDeviceCaps($hdc, 118)
+    $restoredHeight = [PInvoke]::GetDeviceCaps($hdc, 117)
+    Write-Host "Restored screen res: $($restoredWidth)x$($restoredHeight)"
 }
 
 if ($HDR.IsPresent) {
@@ -131,7 +138,6 @@ if ($null -ne $services -and $StopServices.IsPresent) {
 }
 
 if ($Trace.IsPresent) {
-    Write-Host "Done"    
+    Write-Host "Done"
+    Read-Host "[ENTER]"
 }
-
-Start-Sleep -Seconds 2
